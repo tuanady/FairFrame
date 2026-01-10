@@ -1,199 +1,164 @@
 import streamlit as st
 import pandas as pd
 import random
+import datetime
+import requests
 import time
 
 # ==========================================
-# 1. CONFIGURATION & KNOWLEDGE BASE
+# 1. HYBRID CONFIGURATION & KNOWLEDGE BASE
 # ==========================================
+# 2026 Router Endpoint
+ROUTER_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-large-mnli"
+# Using the provided token
+API_TOKEN = "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" 
 
-# A Dictionary of "Risky" Roles that often lead to stereotypical outputs
+# Level 1: Static Rules (Guaranteed to catch specific biased terms)
+# This ensures that even if the AI is 'unsure', the research stats will flag it
 RISK_RULES = {
-    "ceo": ["Gender", "Age", "Ethnicity"],
-    "leader": ["Gender", "Age"],
-    "boss": ["Gender"],
-    "doctor": ["Gender"],
-    "nurse": ["Gender"],
-    "engineer": ["Gender"],
-    "teacher": ["Gender"],
-    "cleaning": ["Ethnicity", "Class"],
-    "housekeeper": ["Gender", "Ethnicity"],
-    "inmate": ["Ethnicity"],
-    "criminal": ["Ethnicity"],
-    "family": ["Structure", "Ethnicity"], 
-    "couple": ["Orientation"] 
+    "ceo": "In 2025, women of color hold less than 7% of C-suite roles in major tech firms.",
+    "nurse": "Global nursing remains ~88% female, contributing to a severe gender-based caregiving stereotype.",
+    "software engineer": "Women represent only ~25% of the global dev workforce as of 2025.",
+    "construction worker": "Women make up only 11% of construction roles; disability is rarely represented."
 }
 
-# Attribute Pools for the "Single Person" Cycling Strategy
-ATTR_ETHNICITY = ["Black", "Asian", "Hispanic", "White", "Middle Eastern", "Indigenous", "Multi-racial"]
-ATTR_GENDER = ["female", "male", "non-binary"]
-ATTR_AGE = ["young", "middle-aged", "elderly"]
-ATTR_DISABILITY = ["using a wheelchair", "with a hearing aid", "wearing glasses", ""]
+ATTR_ETHNICITY = ["Indigenous", "South Asian", "Black", "Latinx", "East Asian", "Middle Eastern", "Mixed-race"]
+ATTR_GENDER = ["non-binary", "woman", "man", "gender-fluid"]
+ATTR_AGE = ["early-career", "middle-aged", "senior (60+)"]
+ATTR_DISABILITY = ["using a wheelchair", "with a prosthetic limb", "with a white cane", "with a hearing aid", ""]
 
 # ==========================================
 # 2. LOGIC FUNCTIONS
 # ==========================================
 
-def detect_bias(prompt):
-    """
-    Scans the prompt for occupation/role keywords that risk stereotype amplification.
-    """
+def query_router(payload):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    for attempt in range(3):
+        try:
+            response = requests.post(ROUTER_URL, headers=headers, json=payload, timeout=30)
+            if response.status_code in [503, 429]:
+                wait = response.json().get("estimated_time", 10)
+                time.sleep(min(wait, 10))
+                continue
+            response.raise_for_status()
+            return response.json()
+        except:
+            continue
+    return None
+
+def analyze_bias_hybrid(prompt):
+    """Hybrid Detection: Dictionary check + High-Sensitivity AI."""
     prompt_lower = prompt.lower()
-    detected_risks = []
-    
-    for role, axes in RISK_RULES.items():
+    risks = []
+
+    # Level 1: Static Rule Check (Dictionary-based)
+    # This addresses the 'everything is neutral' bug for specific roles
+    for role, stat in RISK_RULES.items():
         if role in prompt_lower:
-            detected_risks.append({
-                "role": role,
-                "axes": axes,
-                "msg": f"The term '{role}' often defaults to specific {', '.join(axes)} stereotypes."
+            risks.append({
+                "type": "Historical Stat", 
+                "label": f"{role.title()} Stereotype", 
+                "msg": stat,
+                "score": 1.0 # High confidence for rule-based match
+            })
+
+    # Level 2: Semantic AI Detection (Low threshold to catch subtle bias)
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "candidate_labels": [
+                "stereotypical gender roles", 
+                "racial or ethnic stereotypes", 
+                "occupational bias", 
+                "age-based exclusion", 
+                "neutral and inclusive"
+            ],
+            "multi_label": False
+        },
+    }
+    
+    result = query_router(payload)
+    if result and "labels" in result:
+        top_label = result['labels'][0]
+        top_score = result['scores'][0]
+        
+        # LOWER THRESHOLD: 0.18 is used to catch subtle semantic patterns
+        if top_label != "neutral and inclusive" and top_score > 0.18:
+            risks.append({
+                "type": "AI Semantic",
+                "label": top_label.title(),
+                "msg": f"AI Confidence Score: {int(top_score*100)}%",
+                "score": top_score
             })
             
-    return detected_risks
+    return risks
 
-def generate_suggestions(prompt, detected_risks):
-    """
-    Generates two specific types of fairness-enhanced prompts based on the project goal.
-    """
-    suggestions = {}
-    
-    # If no risk detected, just return the prompt
-    if not detected_risks:
-        return {"Original": prompt}
-
-    # 1. GROUP STRATEGY: Explicit diversity cues for multiple people
-    suggestions["Group"] = f"A diverse group of {detected_risks[0]['role']}s of different genders and ethnic backgrounds, {prompt.replace(detected_risks[0]['role'], '').strip()}"
-
-    # 2. SINGLE PERSON STRATEGY: Cycling through varied examples
-    # We pick random attributes to "break" the default model bias
-    e = random.choice(ATTR_ETHNICITY)
-    g = random.choice(ATTR_GENDER)
-    a = random.choice(ATTR_AGE)
-    d = random.choice(ATTR_DISABILITY)
-    
-    # Construct specific description (e.g., "An Asian man with a disability...")
-    attributes = f"{a} {e} {g}"
-    if d:
-        attributes += f" {d}"
-    
-    # Replace the risky word with the detailed description
-    # e.g. "CEO" -> "Asian male CEO"
-    role = detected_risks[0]['role']
-    suggestions["Single"] = prompt.lower().replace(role, f"{attributes} {role}").capitalize()
-    
-    return suggestions
-
-def mock_image_generation(prompt):
-    """
-    Simulates the image generation by creating a URL that displays the text.
-    (Replace this with Stable Diffusion API calls if you have a GPU/API Key)
-    """
-    time.sleep(1.0) # Simulate processing
-    safe_text = prompt.replace(" ", "%20")
-    # Generates a placeholder image containing the prompt text
-    return f"https://dummyimage.com/600x400/2d2d2d/fff&text={safe_text}"
+def generate_fair_prompt(prompt):
+    e, g, a, d = random.choice(ATTR_ETHNICITY), random.choice(ATTR_GENDER), random.choice(ATTR_AGE), random.choice(ATTR_DISABILITY)
+    diversity_context = f"{a} {e} {g}" + (f" {d}" if d else "")
+    return {
+        "single": f"A realistic, high-quality photo of a {diversity_context} {prompt.lower()}.",
+        "group": f"A diverse group of people from varied backgrounds and genders, {prompt.lower()}."
+    }
 
 # ==========================================
 # 3. STREAMLIT UI
 # ==========================================
 
-st.set_page_config(page_title="FairFrame Assistant", layout="wide")
+st.set_page_config(page_title="FairPrompt Hybrid", page_icon="⚖️", layout="wide")
 
-# Initialize Session State for Data Collection
-if 'evaluation_data' not in st.session_state:
-    st.session_state.evaluation_data = []
+if 'logs' not in st.session_state:
+    st.session_state.logs = []
 
-st.title("⚖️ FairFrame: Bias-Aware Prompt Assistant")
-st.markdown("""
-**Goal:** Detect stereotype risks in prompts and suggest fairer versions to make images more diverse and inclusive.
-**Status:** Running locally.
-""")
-st.divider()
+st.title("⚖️ FairPrompt Hybrid: Bias-Aware Assistant")
+st.markdown("### Combined Statistical (Static) & Semantic (AI) Analysis")
 
-# --- INPUT SECTION ---
-col_input, col_output = st.columns([1, 2])
+col_left, col_right = st.columns([1, 1.2], gap="large")
 
-with col_input:
-    st.subheader("1. Input Prompt")
-    user_prompt = st.text_area("Enter prompt here:", "CEO giving a presentation", height=100)
-    
-    if st.button("Analyze & Suggest", type="primary"):
-        st.session_state.analyzed = True
-        st.session_state.current_prompt = user_prompt
+with col_left:
+    st.subheader("1. Enter Original Prompt")
+    user_input = st.text_area("What do you want to generate?", "A nurse in a hospital", height=100)
+    analyze_btn = st.button("Run Hybrid Analysis", type="primary", use_container_width=True)
 
-# --- OUTPUT SECTION ---
-with col_output:
-    if st.session_state.get('analyzed'):
-        st.subheader("2. Detection & Suggestions")
-        
-        # A. Detection Report
-        risks = detect_bias(st.session_state.current_prompt)
-        if risks:
-            st.error(f"⚠️ **Stereotype Risk Detected**")
-            for r in risks:
-                st.write(f"• **{r['role'].capitalize()}**: Defaults to {', '.join(r['axes'])}")
-        else:
-            st.success("✅ No high-risk terms detected.")
-
-        # B. Suggestions
-        st.markdown("### 💡 Recommended Enhancements")
-        
-        suggestions = generate_suggestions(st.session_state.current_prompt, risks)
-        
-        # Create Tabs for the different strategies
-        tab_orig, tab_group, tab_single = st.tabs(["Original (Biased)", "Group (Diverse)", "Single (Specific)"])
-        
-        # -- Tab: Original --
-        with tab_orig:
-            st.caption(f"Prompt: {st.session_state.current_prompt}")
-            st.image(mock_image_generation(st.session_state.current_prompt), caption="Baseline Output")
-            st.warning("Likely Output: High stereotype amplification (e.g., White Male default).")
-
-        # -- Tab: Group --
-        with tab_group:
-            p_group = suggestions.get("Group", st.session_state.current_prompt)
-            st.info(f"**Prompt:** {p_group}")
-            st.image(mock_image_generation(p_group), caption="Group Strategy Output")
+with col_right:
+    if analyze_btn and user_input:
+        with st.spinner("Analyzing semantics via Router..."):
+            risks = analyze_bias_hybrid(user_input)
             
-        # -- Tab: Single --
-        with tab_single:
-            p_single = suggestions.get("Single", st.session_state.current_prompt)
-            st.info(f"**Prompt:** {p_single}")
-            st.image(mock_image_generation(p_single), caption="Single Person Strategy Output")
-            if st.button("🔄 Cycle Attribute (Try Again)"):
-                # This triggers a re-run, effectively 'cycling' the random attributes
-                st.rerun()
+            if risks:
+                for r in risks:
+                    st.error(f"⚠️ **[{r['type']}] {r['label']}**")
+                    st.write(r['msg'])
+                
+                st.divider()
+                st.subheader("2. Suggested Inclusive Versions")
+                alts = generate_fair_prompt(user_input)
+                
+                # Tabbed results for research clarity
+                tab1, tab2 = st.tabs(["Specific Individual", "Diverse Group"])
+                with tab1:
+                    st.success(alts['single'])
+                    st.caption("Strategy: Counter-Stereotype Attribute Injection")
+                with tab2:
+                    st.success(alts['group'])
+                    st.caption("Strategy: Collective Diversity Parity")
+                
+                if st.button("💾 Log Result to Dataset"):
+                    st.session_state.logs.append({
+                        "Timestamp": datetime.datetime.now().strftime("%H:%M"),
+                        "Input": user_input,
+                        "Bias_Type": risks[0]['label'],
+                        "Confidence": risks[0]['score'],
+                        "Enhanced": alts['single']
+                    })
+                    st.toast("Saved!")
+            else:
+                st.success("✅ No major stereotypes detected in this prompt.")
 
-        # ==========================================
-        # 4. EVALUATION / DATA COLLECTION
-        # ==========================================
-        st.divider()
-        st.subheader("📝 Evaluation (Data Collection)")
-        st.write("Rate the 'Single Person' image above for your project metrics.")
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            realism = st.slider("Realism Score (1-5)", 1, 5, 3)
-        with c2:
-            fairness = st.slider("Fairness/Diversity (1-5)", 1, 5, 3)
-        with c3:
-            saved = st.button("Save Result to Log")
-            
-        if saved:
-            # Log the data for the report
-            entry = {
-                "Original_Prompt": st.session_state.current_prompt,
-                "Enhanced_Prompt": p_single,
-                "Realism": realism,
-                "Fairness": fairness,
-                "Timestamp": time.strftime("%H:%M:%S")
-            }
-            st.session_state.evaluation_data.append(entry)
-            st.success("Data Point Saved!")
-
-# --- DISPLAY LOGS ---
-if st.session_state.evaluation_data:
+# --- RESEARCH DATASET ---
+if st.session_state.logs:
     st.divider()
     st.subheader("📊 Collected Experiment Data")
-    df = pd.DataFrame(st.session_state.evaluation_data)
-    st.dataframe(df)
+    df = pd.DataFrame(st.session_state.logs)
+    st.dataframe(df, use_container_width=True)
+    st.download_button("Download CSV", df.to_csv(index=False), "fairprompt_research_data.csv")

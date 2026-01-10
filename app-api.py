@@ -11,18 +11,32 @@ ROUTER_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-la
 API_TOKEN = "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"
 
 ZERO_SHOT_LABELS = [
-    "gender role stereotype",
-    "racial bias",
-    "ageist exclusion",
-    "neutral and inclusive"
+    "This text reinforces a gender role stereotype",
+    "This text contains racial or ethnic bias",
+    "This text marginalizes people based on age",
+    "This text assumes ability or excludes disability",
+    "This text is neutral and inclusive"
 ]
 
+LABEL_EXPLANATIONS = {
+    "This text reinforces a gender role stereotype":
+        "Associates roles, traits, or behaviors with a specific gender in a way that reinforces traditional or limiting stereotypes.",
+    "This text contains racial or ethnic bias":
+        "Reflects assumptions, exclusions, or preferences based on race or ethnicity, either explicitly or implicitly.",
+    "This text marginalizes people based on age":
+        "Favors or excludes individuals due to age, reinforcing age-related stereotypes or invisibility.",
+    "This text assumes ability or excludes disability":
+        "Assumes all individuals are able-bodied or cognitively typical, or excludes representation of people with disabilities.",
+    "This text is neutral and inclusive":
+        "Does not privilege or marginalize any group and represents people in a balanced, inclusive manner."
+}
+
 RISK_RULES = {
-    "ceo": "In 2025, women of color held 7% of C-suite roles; Black women held only 0.4% of Fortune 500 CEO spots.",
+    "ceo": "In 2025, women of color held 7% of C-suite roles; Black women held only 0.4% of Fortune 500 CEO positions.",
     "nurse": "Global nursing remains ~88% female, reinforcing a caregiver gender stereotype.",
-    "software engineer": "Women represent ~25% of developers; Hispanic/Latinx devs represent only ~8% in major tech hubs.",
-    "construction worker": "Women make up only 11% of the industry; visible disability representation is below 3%.",
-    "doctor": "While medical school graduates have reached parity, only 5.7% of US physicians identify as Black/African American."
+    "software engineer": "Women represent ~25% of developers; Hispanic/Latinx developers represent ~8% in major tech hubs.",
+    "construction worker": "Women make up only 11% of the industry; disability representation is below 3%.",
+    "doctor": "While medical school graduates reached parity, only 5.7% of U.S. physicians identify as Black/African American."
 }
 
 ATTR_ETHNICITY = ["Indigenous", "South Asian", "Black", "Latinx", "East Asian", "Middle Eastern", "Afro-Latino"]
@@ -52,7 +66,7 @@ def query_router(payload):
     return response.json()
 
 # ==========================================
-# 3. NORMALIZE HF OUTPUT (ROBUST)
+# 3. NORMALIZE HF OUTPUT
 # ==========================================
 
 def normalize_zero_shot(result):
@@ -71,13 +85,12 @@ def normalize_zero_shot(result):
     return {"labels": labels, "scores": scores}
 
 # ==========================================
-# 4. BIAS ANALYSIS (FIXED THRESHOLD LOGIC)
+# 4. BIAS ANALYSIS
 # ==========================================
 
 def analyze_bias_hybrid(prompt, threshold):
     risks = []
 
-    # ---- Historical rule-based layer
     prompt_lower = prompt.lower()
     for role, stat in RISK_RULES.items():
         if role in prompt_lower:
@@ -88,7 +101,6 @@ def analyze_bias_hybrid(prompt, threshold):
                 "score": 1.0
             })
 
-    # ---- AI semantic layer
     payload = {
         "inputs": prompt,
         "parameters": {
@@ -105,35 +117,43 @@ def analyze_bias_hybrid(prompt, threshold):
 
     score_map = dict(zip(normalized["labels"], normalized["scores"]))
 
-    neutral_score = score_map.get("neutral and inclusive", 0.0)
-
-    bias_hits = []
-
-    for bias_label in [
-        "gender role stereotype",
-        "racial bias",
-        "ageist exclusion"
-    ]:
-        if score_map.get(bias_label, 0.0) >= threshold:
-            bias_hits.append({
+    for label, score in score_map.items():
+        if "neutral" not in label.lower() and score >= threshold:
+            risks.append({
                 "type": "AI Semantic",
-                "label": bias_label.title(),
-                "msg": (
-                    f"{bias_label.title()} detected "
-                    f"({int(score_map[bias_label]*100)}% ≥ {int(threshold*100)}%)."
-                ),
-                "score": score_map[bias_label]
+                "label": label.replace("This text ", "").capitalize(),
+                "msg": f"Detected with confidence {int(score * 100)}% (≥ {int(threshold * 100)}%).",
+                "score": score
             })
-
-    # ---- FINAL DECISION (YOUR RULES)
-    if bias_hits:
-        risks.extend(bias_hits)
-    # else: neutral dominates OR no strong signal → no bias
 
     return risks, normalized
 
 # ==========================================
-# 5. FAIR PROMPT GENERATOR
+# 5. SCORE-ONLY ANALYSIS (NEW)
+# ==========================================
+
+def analyze_prompt_scores(prompt):
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "candidate_labels": ZERO_SHOT_LABELS,
+            "multi_label": False
+        }
+    }
+
+    raw_result = query_router(payload)
+    normalized = normalize_zero_shot(raw_result)
+
+    if not normalized:
+        return None
+
+    return pd.DataFrame({
+        "Label": normalized["labels"],
+        "Score": normalized["scores"]
+    }).sort_values("Score", ascending=False)
+
+# ==========================================
+# 6. FAIR PROMPT GENERATOR
 # ==========================================
 
 def generate_fair_prompt(prompt):
@@ -149,16 +169,16 @@ def generate_fair_prompt(prompt):
         ),
         "group": (
             f"A diverse group of {prompt.lower()}s of different genders, "
-            f"ages, and ethnicities collaborating in an inclusive environment."
+            f"ages, ethnicities, and abilities collaborating in an inclusive environment."
         )
     }
 
 # ==========================================
-# 6. STREAMLIT UI
+# 7. STREAMLIT UI
 # ==========================================
 
-st.set_page_config(page_title="⚖️ FairPrompt (Final Logic)", layout="wide")
-st.title("⚖️ FairPrompt — Threshold-Exact Bias Detection")
+st.set_page_config(page_title="⚖️ FairPrompt", layout="wide")
+st.title("⚖️ FairPrompt — Explainable Bias Detection")
 
 if "raw_ai" not in st.session_state:
     st.session_state.raw_ai = None
@@ -170,7 +190,6 @@ with st.sidebar:
 
 col_left, col_right = st.columns(2)
 
-# ---- INPUT
 with col_left:
     st.subheader("1. Input Prompt")
     user_input = st.text_input("Prompt:", "A portrait of a hardworking cleaner")
@@ -180,7 +199,6 @@ with col_left:
         st.session_state.raw_ai = res
         st.session_state.risks = risks
 
-# ---- OUTPUT
 with col_right:
     res = st.session_state.raw_ai
     risks = st.session_state.risks
@@ -209,9 +227,26 @@ with col_right:
 
                 alts = generate_fair_prompt(user_input)
                 t1, t2 = st.tabs(["👤 Inclusive Individual", "👥 Inclusive Group"])
+
                 with t1:
                     st.success(alts["single"])
+                    ind_df = analyze_prompt_scores(alts["single"])
+                    if ind_df is not None:
+                        st.markdown("**Bias Score Distribution (Inclusive Individual)**")
+                        st.table(ind_df.reset_index(drop=True))
+
                 with t2:
                     st.success(alts["group"])
+                    grp_df = analyze_prompt_scores(alts["group"])
+                    if grp_df is not None:
+                        st.markdown("**Bias Score Distribution (Inclusive Group)**")
+                        st.table(grp_df.reset_index(drop=True))
             else:
                 st.success("✅ No bias category crossed the threshold.")
+
+            st.divider()
+            st.subheader("4. Bias Label Explanations")
+
+            for label, explanation in LABEL_EXPLANATIONS.items():
+                st.markdown(f"**{label.replace('This text ', '').capitalize()}**")
+                st.write(explanation)

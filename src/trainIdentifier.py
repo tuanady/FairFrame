@@ -15,8 +15,8 @@ image = (
     .pip_install("transformers", "datasets", "torch", "scikit-learn", "accelerate", "pandas", "scipy", "sentencepiece",
                  "protobuf")
     # Mount files from the project root into the cloud container
-    .add_local_file(project_root / "crows_pairs_anonymized.csv", "/root/crows_pairs_anonymized.csv")
-    .add_local_file(project_root / "augmented_bias.csv", "/root/augmented_bias.csv")
+    .add_local_file(project_root / "crows_pairs_filtered.csv", "/root/crows_pairs_filtered.csv")
+    .add_local_file(project_root / "stem_gap_data.csv", "/root/stem_gap_data.csv")
 )
 
 vol = modal.Volume.from_name("fairframe-vol", create_if_missing=True)
@@ -30,7 +30,7 @@ def train_multiclass():
     import torch
     import numpy as np
 
-    print("🚀 REMOTE FUNCTION STARTED: Training 'Perfect' Model...")
+    print(" REMOTE FUNCTION STARTED: Training 'Perfect' Model...")
 
     # --- 1. DEFINE LABELS ---
     LABEL_MAP = {"safe": 0, "gender": 1, "race": 2, "age": 3, "disability": 4, "profession": 5}
@@ -44,7 +44,7 @@ def train_multiclass():
 
     # Load Original CrowS-Pairs
     try:
-        df1 = pd.read_csv("/root/crows_pairs_anonymized.csv")
+        df1 = pd.read_csv("/root/crows_pairs_filtered.csv")
         for _, row in df1.iterrows():
             bias_type_raw = str(row['bias_type']).lower()
             cat_id = 5
@@ -64,22 +64,32 @@ def train_multiclass():
             texts.append(str(row['sent_less']))
             labels.append(0)
     except Exception as e:
-        print(f"❌ Error loading CrowS: {e}")
+        print(f" Error loading CrowS: {e}")
 
     # Load Augmented Data
     try:
-        df2 = pd.read_csv("/root/augmented_bias.csv")
+        # Make sure this points to the correct file name (stem_bias.csv)
+        df2 = pd.read_csv("/root/stem_gap_data.csv")
+        BOOST_FACTOR = 20
+
         for _, row in df2.iterrows():
-            # 3x Weighting for Augmented Data
-            for _ in range(3):
+            # The "Vague" prompt becomes the BIASED input
+            for _ in range(BOOST_FACTOR):
                 texts.append(str(row['sent_more']))
                 labels.append(int(row['bias_type_id']))
-            for _ in range(3):
+
+            # The "Inclusive" prompt becomes the SAFE input
+            for _ in range(BOOST_FACTOR):
                 texts.append(str(row['sent_less']))
                 labels.append(0)
-        print(f"✅ Added {len(df2) * 3} boosted examples.")
+
+        print(f"✅ Loaded Gap Data: {len(df2) * BOOST_FACTOR} examples.")
     except Exception as e:
-        print(f"❌ Error loading Augmented Data: {e}")
+        print(f"❌ Error loading Gap Data: {e}")
+        print(f"✅ Added {len(df2) * BOOST_FACTOR} boosted STEM examples (Aggressive Weighting).")
+
+    except Exception as e:
+        print(f" Error loading STEM Data: {e}")
 
     # --- 3. TRAIN ---
     MODEL_NAME = "microsoft/deberta-v3-base"
@@ -133,5 +143,5 @@ def train_multiclass():
     trainer.train()
 
     save_path = "/data/multilabel_detector"
-    print(f"💾 Saving Perfect Model to {save_path}...")
+    print(f" Saving Perfect Model to {save_path}...")
     model.save_pretrained(save_path)

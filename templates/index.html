@@ -3,188 +3,657 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STEMagine - Bias Gap Detector</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>STEMagine - Aligning GenAI to Societal Values</title>
+    <style>
+        :root {
+            /* Palette extracted from screenshots */
+            --primary-gradient: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --accent-purple: #9333ea;
+            --accent-pink: #db2777;
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            
+            /* Spacing & Radius */
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08);
+            --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            /* Subtle background gradient mesh */
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* --- Navigation --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span:first-child { color: var(--accent-purple); }
+        .logo span:last-child { color: var(--text-main); }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--accent-purple); }
+
+        .btn-cta {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+            transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-cta:hover { transform: translateY(-2px); }
+
+        /* --- Hero Section --- */
+        .hero {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-pink);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 24px;
+            border: 1px solid #fce7f3;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .hero-title-gradient {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 40px auto;
+        }
+
+        .highlight-orange { color: var(--accent-orange); font-weight: 700; }
+        .highlight-purple { color: var(--accent-purple); font-weight: 700; }
+
+        /* --- Stats Row --- */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 60px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-soft);
+            border: 1px solid white;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover { transform: translateY(-5px); }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .text-purple { color: var(--accent-purple); }
+        .text-orange { color: var(--accent-orange); }
+        .text-blue { color: #06b6d4; }
+
+        /* --- Input Section --- */
+        .input-wrapper {
+            background: white;
+            padding: 40px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+            margin-bottom: 80px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+
+        .input-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .input-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .chip-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip:hover {
+            background: white;
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+            box-shadow: 0 2px 8px rgba(147, 51, 234, 0.15);
+        }
+
+        .prompt-box {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-top: 30px;
+            position: relative;
+            transition: border-color 0.2s;
+        }
+
+        .prompt-box:focus-within {
+            border-color: var(--accent-purple);
+            background: white;
+        }
+
+        textarea {
+            width: 100%;
+            border: none;
+            background: transparent;
+            font-size: 1.1rem;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            color: var(--text-main);
+            min-height: 80px;
+        }
+
+        .analyze-btn-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 15px;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .char-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Results Section --- */
+        .results-container {
+            margin-top: 30px;
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-card {
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .result-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #047857;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .rewritten-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.05rem;
+            color: #064e3b;
+        }
+
+        .bias-tags {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .bias-tag {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .tag-warning { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+
+        /* --- Educational Section --- */
+        .section-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .section-title h2 { font-size: 2.2rem; }
+        .section-title span { color: var(--accent-purple); }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 80px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 30px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+            border: 1px solid rgba(0,0,0,0.02);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .icon-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .icon-red { background: #fef2f2; color: #ef4444; }
+        .icon-purple { background: #f3e8ff; color: #9333ea; }
+        .icon-orange { background: #fff7ed; color: #f97316; }
+
+        .feature-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .did-you-know {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--radius-sm);
+            padding: 15px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        /* --- Footer/Quote --- */
+        .quote-section {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            margin-bottom: 60px;
+            border-left: 5px solid var(--accent-blue);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .quote-text {
+            font-size: 1.2rem;
+            font-style: italic;
+            color: var(--text-main);
+            margin-bottom: 15px;
+        }
+
+        .quote-author {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* --- Utilities --- */
+        .hidden { display: none !important; }
+
+    </style>
 </head>
 <body>
+
     <div class="container">
-        <div class="header">
-            <div class="logo-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                </svg>
+        <nav class="navbar">
+            <div class="logo">
+                <span>STEM</span><span>agine</span>
             </div>
-            <h1>Fair<span class="highlight">Frame</span></h1>
-            <p class="subtitle">Detect representation gaps in your image generation prompts</p>
+            <div class="nav-links">
+                <a href="#">Analyze</a>
+                <a href="#">The Problem</a>
+                <a href="#">Principles</a>
+                <button class="btn-cta">Get Started</button>
+            </div>
+        </nav>
+
+        <header class="hero">
+            <div class="badge-pill">
+                <span>✨ Aligning GenAI to Societal Values</span>
+            </div>
+            <h1>
+                <span class="hero-title-gradient">STEMagine</span><br>
+                all the <span class="highlight-orange">included</span> People
+            </h1>
+            <p>
+                A <span class="highlight-blue" style="color:var(--accent-blue); font-weight:700;">bias-aware</span> image prompt assistant. Create inclusive prompts that represent the <span class="highlight-purple">true diversity</span> of scientists, engineers, and innovators.
+            </p>
+        </header>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-number text-orange">87%</div>
+                <div class="stat-label">White default in AI</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number text-purple">28%</div>
+                <div class="stat-label">Women in STEM</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number text-blue">∞</div>
+                <div class="stat-label">Potential to change</div>
+            </div>
         </div>
 
-        <div class="card input-card">
-            <label for="promptInput">Enter your prompt</label>
-            <textarea
-                id="promptInput"
-                placeholder="e.g., Generate a picture of a researcher..."
-                rows="4"
-            ></textarea>
-
-            <div class="input-footer">
-                <span id="charCount" class="char-count">0 characters</span>
-                <button id="analyzeBtn" class="btn-primary">Analyze Bias</button>
-            </div>
-
-            <div class="examples">
-                <p class="examples-title">Try these examples:</p>
+        <div class="input-wrapper">
+            <div class="input-header">
+                <div class="badge-pill" style="color: #059669; background: #d1fae5; border-color: #a7f3d0; box-shadow: none;">
+                    ⚡ TRY IT NOW
+                </div>
+                <h2>Analyze Your <span class="hero-title-gradient">Prompt</span></h2>
+                <p style="color: var(--text-muted);">Enter an image generation prompt and we'll analyze it for potential biases.</p>
+                
                 <div class="chip-container">
-                    <button class="chip">Generate a picture of a researcher</button>
-                    <button class="chip">Portrait of a successful CEO</button>
-                    <button class="chip">A math professor teaching</button>
+                    <div class="chip" onclick="fillPrompt('Portrait of a brilliant scientist')">✨ Scientist</div>
+                    <div class="chip" onclick="fillPrompt('A successful startup founder')">🚀 Founder</div>
+                    <div class="chip" onclick="fillPrompt('An engineer working on a bridge')">🏗️ Engineer</div>
+                    <div class="chip" onclick="fillPrompt('A mathematician solving equations')">📐 Mathematician</div>
+                </div>
+            </div>
+
+            <div class="prompt-box">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; color: var(--accent-blue); font-weight: 600; font-size: 0.9rem;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Your Image Prompt
+                </div>
+                <textarea id="promptInput" placeholder="e.g., A photo of a successful startup founder in a modern office..."></textarea>
+                
+                <div class="analyze-btn-container">
+                    <span id="charCount" class="char-count">0 characters</span>
+                    <button id="analyzeBtn" class="btn-cta" style="border-radius: 8px;">
+                        Analyze Prompt
+                    </button>
+                </div>
+            </div>
+
+            <div id="resultsSection" class="results-container">
+                <div class="bias-tags">
+                    <span class="bias-tag tag-warning">⚠️ Gender Bias Detected</span>
+                    <span class="bias-tag tag-warning">⚠️ Racial Homogeneity Risk</span>
+                </div>
+                
+                <div class="result-card">
+                    <span class="result-label">✨ Inclusive Rewrite (Mitigation Engine)</span>
+                    <p id="rewriteText" class="rewritten-text">Loading...</p>
+                </div>
+
+                <div style="font-size: 0.9rem; color: var(--text-muted); text-align: center;">
+                    ℹ️ Based on the UNESCO Intersectionality Framework
                 </div>
             </div>
         </div>
 
-        <div id="resultsSection" class="hidden">
-
-            <div id="rewriteCard" class="card hidden" style="border-color: #10b981; background: #ecfdf5;">
-                <h3 style="color: #047857; margin-bottom: 0.5rem;">✨ Suggested Rewrite</h3>
-                <p style="margin-bottom: 1rem; color: #065f46; font-size: 0.9rem;">We optimized your prompt for diversity:</p>
-                <div style="background: white; padding: 1rem; border-radius: 0.5rem; border: 1px solid #d1fae5; font-family: monospace; color: #1f2937;">
-                    <p id="rewriteText"></p>
-                </div>
+        <div class="section-title">
+            <div class="badge-pill" style="color: #ea580c; background: #ffedd5; border-color: #fed7aa; box-shadow: none;">
+                ⚠️ CRITICAL AWARENESS
             </div>
+            <h2>Why This <span class="highlight-purple">Matters</span></h2>
+            <p style="color: var(--text-muted);">Text-to-image models default to stereotypical representations.</p>
+        </div>
 
-            <div class="card">
-                <h2>Analysis Results</h2>
-                <div id="scoresList" class="scores-list">
+        <div class="cards-grid">
+            <div class="feature-card">
+                <div>
+                    <div class="icon-box icon-red">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                     </div>
+                    <h3>Gender Bias</h3>
+                    <p>AI models default to male representation for STEM professions. Without specification, 100% of generated scientists are often portrayed as male.</p>
+                </div>
+                <div class="did-you-know">
+                    <span>🎓</span>
+                    <span><strong>Did you know?</strong> Only 28% of STEM researchers globally are women (UNESCO, 2024).</span>
+                </div>
             </div>
 
-            <div id="recommendationsCard" class="card recommendations-card hidden">
-                <h3>Recommendations</h3>
-                <ul id="recommendationsList">
-                    </ul>
+            <div class="feature-card">
+                <div>
+                    <div class="icon-box icon-purple">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3>Racial Homogeneity</h3>
+                    <p>People of color are rarely represented unless explicitly specified. AI defaults to Western/white representation for most professional contexts.</p>
+                </div>
+                <div class="did-you-know">
+                    <span>🌍</span>
+                    <span><strong>Did you know?</strong> Black women earn only 2.5% of computing degrees in the US.</span>
+                </div>
+            </div>
+
+            <div class="feature-card">
+                <div>
+                    <div class="icon-box icon-orange">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3>Age Stereotyping</h3>
+                    <p>Female professionals are often portrayed younger (beauty standards), while male scientists are shown as elderly—both perpetuating harmful stereotypes.</p>
+                </div>
+                <div class="did-you-know">
+                    <span>📉</span>
+                    <span><strong>Did you know?</strong> The 'Einstein effect' excludes young innovators from visual representation.</span>
+                </div>
             </div>
         </div>
+
+        <div class="quote-section">
+            <p class="quote-text">
+                "Visual representations shape how we perceive who belongs in STEM. When AI consistently shows scientists as white men, it reinforces centuries-old barriers to inclusion."
+            </p>
+            <p class="quote-author">— Intersectionality Framework, Kimberlé Crenshaw</p>
+        </div>
+
+        <div class="section-title">
+            <div class="badge-pill" style="color: #9333ea; background: #f3e8ff; border-color: #d8b4fe; box-shadow: none;">
+                🇺🇳 UNESCO AI ETHICS
+            </div>
+            <h2>Values & <span class="highlight-purple">Principles</span></h2>
+        </div>
+
+        <div class="cards-grid">
+            <div class="feature-card" style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <div class="icon-box icon-blue" style="margin:0; width:36px; height:36px; font-size:1rem; background: #e0f2fe; color:#0284c7;">⚖️</div>
+                    <h4 style="margin:0;">Fairness</h4>
+                </div>
+                <p style="font-size:0.9rem; margin:0;">AI systems should not perpetuate harmful stereotypes.</p>
+            </div>
+            <div class="feature-card" style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <div class="icon-box icon-pink" style="margin:0; width:36px; height:36px; font-size:1rem; background: #fce7f3; color:#db2777;">❤️</div>
+                    <h4 style="margin:0;">Human Dignity</h4>
+                </div>
+                <p style="font-size:0.9rem; margin:0;">Respect for the inherent dignity of all people.</p>
+            </div>
+             <div class="feature-card" style="padding: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <div class="icon-box icon-purple" style="margin:0; width:36px; height:36px; font-size:1rem;">👥</div>
+                    <h4 style="margin:0;">Diversity</h4>
+                </div>
+                <p style="font-size:0.9rem; margin:0;">Outputs should reflect the true diversity of humanity.</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 40px; color: var(--text-muted); font-size: 0.9rem;">
+            Made with ❤️ by Tuana, Marina, Rebecca, Sohaib & Heval — Technical University of Munich
+        </div>
+
     </div>
 
     <script>
-        // DOM Elements
         const promptInput = document.getElementById('promptInput');
-        const charCount = document.getElementById('charCount');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const resultsSection = document.getElementById('resultsSection');
-        const scoresList = document.getElementById('scoresList');
-        const recommendationsCard = document.getElementById('recommendationsCard');
-        const recommendationsList = document.getElementById('recommendationsList');
-
-        // ✨ NEW ELEMENTS
-        const rewriteCard = document.getElementById('rewriteCard');
         const rewriteText = document.getElementById('rewriteText');
+        const charCount = document.getElementById('charCount');
 
-        // Character Count Logic
+        // Update character count
         promptInput.addEventListener('input', (e) => {
             charCount.textContent = `${e.target.value.length} characters`;
         });
 
-        // Example Chips Logic
-        document.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                promptInput.value = chip.textContent;
-                charCount.textContent = `${chip.textContent.length} characters`;
-            });
-        });
+        // Function to fill example prompt
+        function fillPrompt(text) {
+            promptInput.value = text;
+            charCount.textContent = `${text.length} characters`;
+            // Scroll to input if needed
+            promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
 
-        // Analyze Button Logic
-        analyzeBtn.addEventListener('click', async () => {
-            const prompt = promptInput.value.trim();
-            if (!prompt) return;
+        // Mock Analysis Logic
+        analyzeBtn.addEventListener('click', () => {
+            const input = promptInput.value;
+            if (input.trim() === "") return;
 
-            // 1. Reset UI State
-            analyzeBtn.textContent = 'Analyzing...';
+            // Loading state
+            analyzeBtn.textContent = "Processing...";
             analyzeBtn.disabled = true;
             resultsSection.classList.add('hidden');
-            scoresList.innerHTML = '';
-            recommendationsList.innerHTML = '';
 
-            // Hide conditional cards
-            recommendationsCard.classList.add('hidden');
-            rewriteCard.classList.add('hidden'); // Reset rewrite card
-
-            try {
-                // 2. Call Backend
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-
-                const result = await response.json();
-
-                if (result.error) {
-                    alert(result.error);
-                    return;
+            // Simulate API delay
+            setTimeout(() => {
+                // Determine replacement based on input (Simple Mock Logic)
+                let rewritten = "";
+                
+                if (input.toLowerCase().includes("scientist") || input.toLowerCase().includes("researcher")) {
+                    rewritten = "A portrait of a senior female scientist of Asian descent, reviewing data in a modern laboratory, natural lighting.";
+                } else if (input.toLowerCase().includes("founder") || input.toLowerCase().includes("ceo")) {
+                    rewritten = "A photo of a successful Black female startup founder in a wheelchair, leading a meeting in a bright office.";
+                } else if (input.toLowerCase().includes("engineer")) {
+                    rewritten = "A medium shot of a Hispanic male engineer with a prosthetic arm, supervising a construction site safely.";
+                } else {
+                    rewritten = `An inclusive representation of ${input}, featuring diverse gender, age, and ethnic attributes to reflect societal reality.`;
                 }
 
-                // 3. Display Rewrite (✨ NEW LOGIC)
-                if (result.rewritten) {
-                    rewriteCard.classList.remove('hidden');
-                    rewriteText.textContent = result.rewritten;
-                }
-
-                // 4. Display Scores
-                const categories = ['Gender', 'Race', 'Disability', 'Age', 'Profession'];
-
-                categories.forEach(category => {
-                    const score = result.scores[category] || 0;
-                    const percentage = Math.round(score * 100);
-                    const isGap = score > 0.5; // Threshold check
-
-                    const scoreItem = document.createElement('div');
-                    scoreItem.className = 'score-item';
-                    scoreItem.innerHTML = `
-                        <div class="score-header">
-                            <span class="score-label">${category} Gap</span>
-                            <span class="${isGap ? 'score-gap' : 'score-safe'}">${percentage}%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill ${isGap ? 'progress-gap' : 'progress-safe'}"
-                                 style="width: ${percentage}%"></div>
-                        </div>
-                        <p class="score-description">
-                            ${isGap
-                                ? `High likelihood of ${category.toLowerCase()} representation gap`
-                                : `${category} appears to be specified or neutral`}
-                        </p>
-                    `;
-                    scoresList.appendChild(scoreItem);
-                });
-
-                // 5. Display Recommendations
-                if (result.gaps.length > 0) {
-                    recommendationsCard.classList.remove('hidden');
-
-                    const recommendations = {
-                        'Gender': 'Consider specifying gender (e.g., "female researcher", "woman scientist")',
-                        'Race': 'Include racial/ethnic diversity (e.g., "Black", "Asian", "Latina", "Indigenous")',
-                        'Disability': 'Add disability representation (e.g., "in a wheelchair", "with a prosthetic limb", "with low vision")',
-                        'Age': 'Consider age diversity (e.g., "young", "senior", "early-career")',
-                        'Profession': 'Specify professional context if needed'
-                    };
-
-                    result.gaps.forEach(gap => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<span class="bullet">•</span><span>${recommendations[gap] || "Improve diversity specificity."}</span>`;
-                        recommendationsList.appendChild(li);
-                    });
-                }
-
+                // Show results
+                rewriteText.textContent = rewritten;
+                resultsSection.style.display = 'block';
                 resultsSection.classList.remove('hidden');
-
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred during analysis');
-            } finally {
-                analyzeBtn.textContent = 'Analyze Bias';
+                
+                // Reset button
+                analyzeBtn.textContent = "Analyze Prompt";
                 analyzeBtn.disabled = false;
-            }
+            }, 1000);
         });
     </script>
 </body>

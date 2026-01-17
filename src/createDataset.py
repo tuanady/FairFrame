@@ -1,56 +1,924 @@
 import pandas as pd
+import json
 
-# Structure: [Vague_Prompt (Bad), Inclusive_Prompt (Good), Label_ID]
-# ID 1 = Gender Gap, 2 = Racial Gap, 4 = Disability Gap
+# Structure: [Vague_Prompt (Bad), Inclusive_Prompt (Good), Active_Label_IDs]
+# Label IDs: 0=Safe, 1=Gender, 2=Race, 3=Age, 4=Disability, 5=Profession
 
 data = [
-    # --- GENDER GAPS (ID 1) ---
-    # Concept: A role without gender is a risk (Gap). Specifying "Female" closes the gap.
-    ["Generate a picture of a researcher.", "Generate a picture of a female researcher.", 1],
-    ["Show me a scientist in a lab.", "Show me a woman scientist in a lab.", 1],
-    ["A portrait of a software engineer.", "A portrait of a female software engineer.", 1],
-    ["Give me an image of a CEO.", "Give me an image of a female CEO.", 1],
-    ["A mathematician writing on a board.", "A woman mathematician writing on a board.", 1],
-    ["The pilot entered the cockpit.", "The female pilot entered the cockpit.", 1],
-    ["A doctor holding a stethoscope.", "A female doctor holding a stethoscope.", 1],
-    ["A construction worker on site.", "A female construction worker on site.", 1],
-    ["The lead developer reviewing code.", "The female lead developer reviewing code.", 1],
-    ["A robotics engineer fixing a bot.", "A woman robotics engineer fixing a bot.", 1],
+    # ========================================
+    # MULTIPLE GAPS [1, 2, 4] - 25 examples
+    # ========================================
+    ["Generate a picture of a researcher.",
+     "Generate a picture of a Black female researcher in a wheelchair.",
+     [1, 2, 4]],
 
-    # --- RACIAL GAPS (ID 2) ---
-    # Concept: A role without race is a risk (Gap). Specifying "Black/Asian/Latino" closes the gap.
-    ["Generate a STEM student.", "Generate a Black STEM student.", 2],
-    ["A photo of a lab technician.", "A photo of a Hispanic lab technician.", 2],
-    ["Show me a professor teaching.", "Show me a Black professor teaching.", 2],
-    ["A successful startup founder.", "A successful Asian startup founder.", 2],
-    ["A group of coders working.", "A diverse group of coders working.", 2],
-    ["The architect presenting the plans.", "The Indigenous architect presenting the plans.", 2],
-    ["A chemist mixing solutions.", "A Latino chemist mixing solutions.", 2],
-    ["An astronaut in a spacesuit.", "A Black astronaut in a spacesuit.", 2],
-    ["A data scientist looking at screens.", "An East Asian data scientist looking at screens.", 2],
-    ["The surgeon washing hands.", "The Indian surgeon washing hands.", 2],
+    ["Show me a scientist in a lab.",
+     "Show me an Asian woman scientist with a prosthetic limb in a lab.",
+     [1, 2, 4]],
 
-    # --- DISABILITY GAPS (ID 4) ---
-    # Concept: A person without disability details is a risk (Gap). Specifying visibility closes it.
-    ["A generic office worker.", "An office worker using a wheelchair.", 4],
-    ["A student raising their hand.", "A student with a cochlear implant raising their hand.", 4],
-    ["A field geologist working.", "A geologist with a prosthetic limb working.", 4],
-    ["A developer sitting at a desk.", "A developer with a visual impairment using a screen reader.", 4],
-    ["A teacher writing on a whiteboard.", "A teacher using a mobility aid writing on a whiteboard.", 4],
-    ["A scientist looking through a microscope.", "A scientist in a wheelchair looking through a microscope.", 4],
-    ["A graphic designer working on a tablet.", "A graphic designer with a limb difference working on a tablet.", 4],
+    ["A portrait of a software engineer.",
+     "A portrait of a Latino female software engineer using a wheelchair.",
+     [1, 2, 4]],
 
-    # --- EXPLICIT BIAS / TOXICITY (Keep these to catch actual hate/stereotypes) ---
-    ["He was a diversity hire.", "He was hired for his skills.", 2],
-    ["Women are bad at backend coding.", "People vary in coding skills.", 1],
-    ["Asians are naturally good at math.", "Math requires practice.", 2],
-    ["The deaf student slows down the group.", "The deaf student contributes to the group.", 4],
-    ["She's too emotional to be a leader.", "She is a leader.", 1]
+    ["Give me an image of a CEO.",
+     "Give me an image of a Black female CEO with a visual impairment.",
+     [1, 2, 4]],
+
+    ["A data scientist analyzing code.",
+     "A South Asian female data scientist with hearing aids analyzing code.",
+     [1, 2, 4]],
+
+    ["An astronaut in space.",
+     "A Black female astronaut with a prosthetic leg in space.",
+     [1, 2, 4]],
+
+    ["A professor teaching a class.",
+     "An Indigenous woman professor using a wheelchair teaching a class.",
+     [1, 2, 4]],
+
+    ["A mechanical engineer designing parts.",
+     "A Latina engineer with a limb difference designing parts.",
+     [1, 2, 4]],
+
+    ["The surgeon preparing for operation.",
+     "The Black female surgeon with a mobility aid preparing for operation.",
+     [1, 2, 4]],
+
+    ["A chemist mixing solutions.",
+     "An Asian woman chemist with low vision mixing solutions.",
+     [1, 2, 4]],
+
+    ["Show me a robotics expert.",
+     "Show me a Black female robotics expert in a wheelchair.",
+     [1, 2, 4]],
+
+    ["An AI researcher at work.",
+     "A Latina AI researcher with a cochlear implant at work.",
+     [1, 2, 4]],
+
+    ["A physicist working on equations.",
+     "A Middle Eastern female physicist with a prosthetic arm working on equations.",
+     [1, 2, 4]],
+
+    ["A biomedical engineer in the lab.",
+     "An Indigenous woman biomedical engineer using a wheelchair in the lab.",
+     [1, 2, 4]],
+
+    ["The architect reviewing blueprints.",
+     "The Black female architect with a visual impairment reviewing blueprints.",
+     [1, 2, 4]],
+
+    ["A computer programmer coding.",
+     "A South Asian female programmer with autism coding.",
+     [1, 2, 4]],
+
+    ["An electrical engineer testing circuits.",
+     "A Latina electrical engineer with a hearing impairment testing circuits.",
+     [1, 2, 4]],
+
+    ["A geneticist studying DNA.",
+     "An Asian female geneticist in a wheelchair studying DNA.",
+     [1, 2, 4]],
+
+    ["The lab technician preparing samples.",
+     "The Black female lab technician with a prosthetic hand preparing samples.",
+     [1, 2, 4]],
+
+    ["A quantum physicist at the particle accelerator.",
+     "An Indigenous woman quantum physicist with a mobility aid at the particle accelerator.",
+     [1, 2, 4]],
+
+    ["A neuroscientist conducting research.",
+     "A Middle Eastern female neuroscientist with cerebral palsy conducting research.",
+     [1, 2, 4]],
+
+    ["An aerospace engineer designing rockets.",
+     "A Black female aerospace engineer with a limb difference designing rockets.",
+     [1, 2, 4]],
+
+    ["A materials scientist in the cleanroom.",
+     "A Latina materials scientist with low vision in the cleanroom.",
+     [1, 2, 4]],
+
+    ["The clinical researcher analyzing trials.",
+     "The Asian female clinical researcher using a wheelchair analyzing trials.",
+     [1, 2, 4]],
+
+    ["A network security analyst.",
+     "A Black female network security analyst with ADHD.",
+     [1, 2, 4]],
+
+    # ========================================
+    # DUAL GAPS: Gender + Race [1, 2] - 25 examples
+    # ========================================
+    ["A mathematician writing on a board.",
+     "A Black female mathematician writing on a board.",
+     [1, 2]],
+
+    ["A doctor holding a stethoscope.",
+     "An Asian female doctor holding a stethoscope.",
+     [1, 2]],
+
+    ["The pilot in the cockpit.",
+     "The Latina pilot in the cockpit.",
+     [1, 2]],
+
+    ["A construction worker on site.",
+     "A Black female construction worker on site.",
+     [1, 2]],
+
+    ["An engineer reviewing plans.",
+     "An Indigenous woman engineer reviewing plans.",
+     [1, 2]],
+
+    ["A dentist examining a patient.",
+     "A Middle Eastern female dentist examining a patient.",
+     [1, 2]],
+
+    ["The veterinarian with animals.",
+     "The Asian female veterinarian with animals.",
+     [1, 2]],
+
+    ["A pharmacist dispensing medication.",
+     "A Black female pharmacist dispensing medication.",
+     [1, 2]],
+
+    ["An accountant reviewing finances.",
+     "A Latina accountant reviewing finances.",
+     [1, 2]],
+
+    ["The IT specialist fixing computers.",
+     "The South Asian female IT specialist fixing computers.",
+     [1, 2]],
+
+    ["A geologist examining rocks.",
+     "An Indigenous woman geologist examining rocks.",
+     [1, 2]],
+
+    ["An astronomer using a telescope.",
+     "A Black female astronomer using a telescope.",
+     [1, 2]],
+
+    ["A meteorologist forecasting weather.",
+     "An Asian female meteorologist forecasting weather.",
+     [1, 2]],
+
+    ["The botanist studying plants.",
+     "The Latina botanist studying plants.",
+     [1, 2]],
+
+    ["A marine biologist diving.",
+     "A Black female marine biologist diving.",
+     [1, 2]],
+
+    ["An environmental scientist in the field.",
+     "A Middle Eastern female environmental scientist in the field.",
+     [1, 2]],
+
+    ["A civil engineer at a construction site.",
+     "An Indigenous woman civil engineer at a construction site.",
+     [1, 2]],
+
+    ["The game developer coding.",
+     "The Asian female game developer coding.",
+     [1, 2]],
+
+    ["A UX designer sketching wireframes.",
+     "A Black female UX designer sketching wireframes.",
+     [1, 2]],
+
+    ["An industrial designer creating prototypes.",
+     "A Latina industrial designer creating prototypes.",
+     [1, 2]],
+
+    ["A structural engineer analyzing buildings.",
+     "A South Asian female structural engineer analyzing buildings.",
+     [1, 2]],
+
+    ["The database administrator.",
+     "The Black female database administrator.",
+     [1, 2]],
+
+    ["A cybersecurity expert.",
+     "An Asian female cybersecurity expert.",
+     [1, 2]],
+
+    ["An operations researcher.",
+     "A Latina operations researcher.",
+     [1, 2]],
+
+    ["The quality assurance engineer.",
+     "The Indigenous woman quality assurance engineer.",
+     [1, 2]],
+
+    # ========================================
+    # DUAL GAPS: Gender + Disability [1, 4] - 25 examples
+    # ========================================
+    ["The pilot entered the cockpit.",
+     "The female pilot using a mobility aid entered the cockpit.",
+     [1, 4]],
+
+    ["A research scientist at the bench.",
+     "A female research scientist in a wheelchair at the bench.",
+     [1, 4]],
+
+    ["An engineer testing equipment.",
+     "A female engineer with a prosthetic arm testing equipment.",
+     [1, 4]],
+
+    ["The developer writing code.",
+     "The female developer with low vision writing code.",
+     [1, 4]],
+
+    ["A lab director overseeing experiments.",
+     "A female lab director with hearing aids overseeing experiments.",
+     [1, 4]],
+
+    ["An anesthesiologist in the OR.",
+     "A female anesthesiologist using a wheelchair in the OR.",
+     [1, 4]],
+
+    ["A cardiologist reviewing scans.",
+     "A female cardiologist with a visual impairment reviewing scans.",
+     [1, 4]],
+
+    ["The project manager leading a team.",
+     "The female project manager with autism leading a team.",
+     [1, 4]],
+
+    ["A field researcher collecting data.",
+     "A female field researcher with a prosthetic leg collecting data.",
+     [1, 4]],
+
+    ["An oceanographer on a research vessel.",
+     "A female oceanographer with a mobility aid on a research vessel.",
+     [1, 4]],
+
+    ["A clinical psychologist in session.",
+     "A female clinical psychologist with ADHD in session.",
+     [1, 4]],
+
+    ["The pathologist examining specimens.",
+     "The female pathologist with a limb difference examining specimens.",
+     [1, 4]],
+
+    ["A radiologist reading X-rays.",
+     "A female radiologist in a wheelchair reading X-rays.",
+     [1, 4]],
+
+    ["An epidemiologist tracking diseases.",
+     "A female epidemiologist with dyslexia tracking diseases.",
+     [1, 4]],
+
+    ["A software architect designing systems.",
+     "A female software architect with cerebral palsy designing systems.",
+     [1, 4]],
+
+    ["The tech lead reviewing pull requests.",
+     "The female tech lead with a hearing impairment reviewing pull requests.",
+     [1, 4]],
+
+    ["A product manager planning sprints.",
+     "A female product manager using a wheelchair planning sprints.",
+     [1, 4]],
+
+    ["An information security analyst.",
+     "A female information security analyst with low vision.",
+     [1, 4]],
+
+    ["A machine learning engineer training models.",
+     "A female machine learning engineer with a prosthetic hand training models.",
+     [1, 4]],
+
+    ["The chief technology officer.",
+     "The female chief technology officer with a mobility aid.",
+     [1, 4]],
+
+    ["A blockchain developer.",
+     "A female blockchain developer with autism.",
+     [1, 4]],
+
+    ["An embedded systems engineer.",
+     "A female embedded systems engineer with a cochlear implant.",
+     [1, 4]],
+
+    ["A cloud architect.",
+     "A female cloud architect in a wheelchair.",
+     [1, 4]],
+
+    ["The DevOps engineer.",
+     "The female DevOps engineer with ADHD.",
+     [1, 4]],
+
+    ["A full-stack developer.",
+     "A female full-stack developer with a visual impairment.",
+     [1, 4]],
+    ["A white researcher.",
+     "A white female researcher in a wheelchair.",
+     [1, 4]],  # Only gender + disability gaps
+
+    ["Show me a white scientist.",
+     "Show me a white woman scientist with hearing aids.",
+     [1, 4]],
+
+    ["A white engineer.",
+     "A white female engineer using a mobility aid.",
+     [1, 4]],
+
+    # ========================================
+    # DUAL GAPS: Race + Disability [2, 4] - 25 examples
+    # ========================================
+    ["A medical researcher in the lab.",
+     "A Black medical researcher in a wheelchair in the lab.",
+     [2, 4]],
+
+    ["An engineer at a design station.",
+     "An Asian engineer with a prosthetic leg at a design station.",
+     [2, 4]],
+
+    ["The programmer debugging code.",
+     "The Latino programmer with low vision debugging code.",
+     [2, 4]],
+
+    ["A scientist presenting findings.",
+     "An Indigenous scientist with hearing aids presenting findings.",
+     [2, 4]],
+
+    ["An analyst reviewing data.",
+     "A Middle Eastern analyst in a wheelchair reviewing data.",
+     [2, 4]],
+
+    ["A technician repairing instruments.",
+     "A Black technician with a limb difference repairing instruments.",
+     [2, 4]],
+
+    ["The mathematician solving problems.",
+     "The Asian mathematician with autism solving problems.",
+     [2, 4]],
+
+    ["A statistician analyzing results.",
+     "A Latino statistician with cerebral palsy analyzing results.",
+     [2, 4]],
+
+    ["An architect designing buildings.",
+     "An Indigenous architect with a mobility aid designing buildings.",
+     [2, 4]],
+
+    ["A financial analyst forecasting.",
+     "A South Asian financial analyst with dyslexia forecasting.",
+     [2, 4]],
+
+    ["The bioinformatician coding pipelines.",
+     "The Black bioinformatician with a visual impairment coding pipelines.",
+     [2, 4]],
+
+    ["A chemical engineer in the plant.",
+     "An Asian chemical engineer in a wheelchair in the plant.",
+     [2, 4]],
+
+    ["An urban planner reviewing maps.",
+     "A Latino urban planner with low vision reviewing maps.",
+     [2, 4]],
+
+    ["A systems analyst.",
+     "A Middle Eastern systems analyst with a prosthetic arm.",
+     [2, 4]],
+
+    ["The biostatistician.",
+     "The Black biostatistician with ADHD.",
+     [2, 4]],
+
+    ["A petroleum engineer in the field.",
+     "An Indigenous petroleum engineer with a hearing impairment in the field.",
+     [2, 4]],
+
+    ["An agricultural scientist.",
+     "A South Asian agricultural scientist using a wheelchair.",
+     [2, 4]],
+
+    ["A conservation biologist.",
+     "a Latino conservation biologist with a cochlear implant.",
+     [2, 4]],
+
+    ["The toxicologist testing samples.",
+     "The Asian toxicologist with a limb difference testing samples.",
+     [2, 4]],
+
+    ["A forensic scientist.",
+     "A Black forensic scientist with autism.",
+     [2, 4]],
+
+    ["An automotive engineer.",
+     "A Middle Eastern automotive engineer in a wheelchair.",
+     [2, 4]],
+
+    ["A naval architect.",
+     "An Indigenous naval architect with a visual impairment.",
+     [2, 4]],
+
+    ["The mining engineer.",
+     "The Latino mining engineer with a prosthetic leg.",
+     [2, 4]],
+
+    ["A textile engineer.",
+     "An Asian textile engineer with cerebral palsy.",
+     [2, 4]],
+
+    ["A food scientist.",
+     "A Black food scientist with dyslexia.",
+     [2, 4]],
+
+    ["A male researcher.",
+    "A Black male researcher in a wheelchair.",
+    [2, 4]],
+
+    ["Generate a male scientist.",
+     "Generate a Latino male scientist with a prosthetic arm.",
+     [2, 4]],
+
+    ["A male software engineer.",
+     "An Asian male software engineer with low vision.",
+     [2, 4]],
+
+    # ========================================
+    # SINGLE GAP: Gender Only [1] - 25 examples
+    # ========================================
+    ["A Black lead developer reviewing code.",
+     "A Black female lead developer reviewing code.",
+     [1]],
+
+    ["An Asian surgeon in the OR.",
+     "An Asian female surgeon in the OR.",
+     [1]],
+
+    ["A Latino physicist running experiments.",
+     "A Latina physicist running experiments.",
+     [1]],
+
+    ["An Indigenous astronomer stargazing.",
+     "An Indigenous woman astronomer stargazing.",
+     [1]],
+
+    ["A Middle Eastern chemist.",
+     "A Middle Eastern female chemist.",
+     [1]],
+
+    ["A Black engineer with a wheelchair.",
+     "A Black female engineer with a wheelchair.",
+     [1]],
+
+    ["An Asian researcher with low vision.",
+     "An Asian female researcher with low vision.",
+     [1]],
+
+    ["A Latino scientist in a wheelchair.",
+     "A Latina scientist in a wheelchair.",
+     [1]],
+
+    ["An Indigenous developer with hearing aids.",
+     "An Indigenous woman developer with hearing aids.",
+     [1]],
+
+    ["A South Asian mathematician.",
+     "A South Asian female mathematician.",
+     [1]],
+
+    ["A Black pilot.",
+     "A Black female pilot.",
+     [1]],
+
+    ["An Asian architect.",
+     "An Asian female architect.",
+     [1]],
+
+    ["A Latino geologist.",
+     "A Latina geologist.",
+     [1]],
+
+    ["An Indigenous biologist.",
+     "An Indigenous woman biologist.",
+     [1]],
+
+    ["A Middle Eastern programmer.",
+     "A Middle Eastern female programmer.",
+     [1]],
+
+    ["A Black engineer using a mobility aid.",
+     "A Black female engineer using a mobility aid.",
+     [1]],
+
+    ["An Asian doctor with a prosthetic limb.",
+     "An Asian female doctor with a prosthetic limb.",
+     [1]],
+
+    ["A Latino technician.",
+     "A Latina technician.",
+     [1]],
+
+    ["An Indigenous analyst.",
+     "An Indigenous woman analyst.",
+     [1]],
+
+    ["A South Asian veterinarian.",
+     "A South Asian female veterinarian.",
+     [1]],
+
+    ["A Black pharmacist.",
+     "A Black female pharmacist.",
+     [1]],
+
+    ["An Asian accountant.",
+     "An Asian female accountant.",
+     [1]],
+
+    ["A Latino IT specialist.",
+     "A Latina IT specialist.",
+     [1]],
+
+    ["An Indigenous meteorologist.",
+     "An Indigenous woman meteorologist.",
+     [1]],
+
+    ["A Middle Eastern botanist.",
+     "A Middle Eastern female botanist.",
+     [1]],
+
+    # ========================================
+    # SINGLE GAP: Race Only [2] - 25 examples
+    # ========================================
+    ["A female construction worker on site.",
+     "A Black female construction worker on site.",
+     [2]],
+
+    ["A woman engineer in the lab.",
+     "An Asian woman engineer in the lab.",
+     [2]],
+
+    ["A female scientist presenting.",
+     "A Latina scientist presenting.",
+     [2]],
+
+    ["A woman developer coding.",
+     "An Indigenous woman developer coding.",
+     [2]],
+
+    ["A female mathematician teaching.",
+     "A Middle Eastern female mathematician teaching.",
+     [2]],
+
+    ["A woman surgeon operating.",
+     "A Black woman surgeon operating.",
+     [2]],
+
+    ["A female pilot flying.",
+     "An Asian female pilot flying.",
+     [2]],
+
+    ["A woman chemist in the lab.",
+     "A Latina chemist in the lab.",
+     [2]],
+
+    ["A female architect designing.",
+     "An Indigenous woman architect designing.",
+     [2]],
+
+    ["A woman physicist researching.",
+     "A South Asian woman physicist researching.",
+     [2]],
+
+    ["A female engineer with a wheelchair.",
+     "A Black female engineer with a wheelchair.",
+     [2]],
+
+    ["A woman researcher with low vision.",
+     "An Asian woman researcher with low vision.",
+     [2]],
+
+    ["A female scientist in a wheelchair.",
+     "A Latina scientist in a wheelchair.",
+     [2]],
+
+    ["A woman developer with hearing aids.",
+     "An Indigenous woman developer with hearing aids.",
+     [2]],
+
+    ["A female geologist.",
+     "A Middle Eastern female geologist.",
+     [2]],
+
+    ["A woman astronomer.",
+     "A Black woman astronomer.",
+     [2]],
+
+    ["A female biologist.",
+     "An Asian female biologist.",
+     [2]],
+
+    ["A woman programmer.",
+     "A Latina programmer.",
+     [2]],
+
+    ["A female technician.",
+     "An Indigenous woman technician.",
+     [2]],
+
+    ["A woman analyst.",
+     "A South Asian woman analyst.",
+     [2]],
+
+    ["A female veterinarian.",
+     "A Black female veterinarian.",
+     [2]],
+
+    ["A woman pharmacist.",
+     "An Asian female pharmacist.",
+     [2]],
+
+    ["A female accountant.",
+     "A Latina accountant.",
+     [2]],
+
+    ["A woman IT specialist.",
+     "An Indigenous woman IT specialist.",
+     [2]],
+
+    ["A female meteorologist.",
+     "A Middle Eastern female meteorologist.",
+     [2]],
+
+    # ========================================
+    # SINGLE GAP: Disability Only [4] - 25 examples
+    # ========================================
+    ["A Black female researcher at the bench.",
+     "A Black female researcher in a wheelchair at the bench.",
+     [4]],
+
+    ["An Asian woman engineer testing.",
+     "An Asian woman engineer with a prosthetic arm testing.",
+     [4]],
+
+    ["A Latina scientist analyzing data.",
+     "A Latina scientist with low vision analyzing data.",
+     [4]],
+
+    ["An Indigenous woman developer coding.",
+     "An Indigenous woman developer with hearing aids coding.",
+     [4]],
+
+    ["A Middle Eastern female mathematician.",
+     "A Middle Eastern female mathematician with autism.",
+     [4]],
+
+    ["A Black woman surgeon in surgery.",
+     "A Black woman surgeon with a mobility aid in surgery.",
+     [4]],
+
+    ["An Asian female pilot.",
+     "An Asian female pilot with a prosthetic leg.",
+     [4]],
+
+    ["A Latina chemist in the lab.",
+     "A Latina chemist with a visual impairment in the lab.",
+     [4]],
+
+    ["An Indigenous woman architect.",
+     "An Indigenous woman architect in a wheelchair.",
+     [4]],
+
+    ["A South Asian female physicist.",
+     "A South Asian female physicist with cerebral palsy.",
+     [4]],
+
+    ["A Black woman geologist.",
+     "A Black woman geologist with a limb difference.",
+     [4]],
+
+    ["An Asian female astronomer.",
+     "An Asian female astronomer with dyslexia.",
+     [4]],
+
+    ["A Latina biologist.",
+     "A Latina biologist with a cochlear implant.",
+     [4]],
+
+    ["An Indigenous woman programmer.",
+     "An Indigenous woman programmer with ADHD.",
+     [4]],
+
+    ["A Middle Eastern female technician.",
+     "A Middle Eastern female technician in a wheelchair.",
+     [4]],
+
+    ["A Black woman analyst.",
+     "A Black woman analyst with a hearing impairment.",
+     [4]],
+
+    ["An Asian female veterinarian.",
+     "An Asian female veterinarian with a prosthetic hand.",
+     [4]],
+
+    ["A Latina pharmacist.",
+     "A Latina pharmacist with low vision.",
+     [4]],
+
+    ["An Indigenous woman accountant.",
+     "An Indigenous woman accountant with autism.",
+     [4]],
+
+    ["A South Asian female IT specialist.",
+     "A South Asian female IT specialist using a wheelchair.",
+     [4]],
+
+    ["A Black woman meteorologist.",
+     "A Black woman meteorologist with a visual impairment.",
+     [4]],
+
+    ["An Asian female botanist.",
+     "An Asian female botanist with a mobility aid.",
+     [4]],
+
+    ["A Latina marine biologist.",
+     "A Latina marine biologist with a prosthetic leg.",
+     [4]],
+
+    ["An Indigenous woman environmental scientist.",
+     "An Indigenous woman environmental scientist with dyslexia.",
+     [4]],
+
+    ["A Middle Eastern female civil engineer.",
+     "A Middle Eastern female civil engineer with cerebral palsy.",
+     [4]],
+
+    ["A white male researcher.",
+     "A white male researcher in a wheelchair.",
+     [4]],  # Only disability gap
+
+    ["A white male scientist.",
+     "A white male scientist with a prosthetic limb.",
+     [4]],
+
+    ["A white male engineer.",
+     "A white male engineer with low vision.",
+     [4]],
+
+    # Male + Diverse race = Only disability gap
+    ["A Black male researcher.",
+     "A Black male researcher in a wheelchair.",
+     [4]],
+
+    ["An Asian male scientist.",
+     "An Asian male scientist with hearing aids.",
+     [4]],
+
+    ["A Latino male engineer.",
+     "A Latino male engineer using a wheelchair.",
+     [4]],
+
+    # White + Female = Only disability gap
+    ["A white female researcher.",
+     "A white female researcher in a wheelchair.",
+     [4]],
+
+    ["A white woman scientist.",
+     "A white woman scientist with a prosthetic arm.",
+     [4]],
+
+    # ========================================
+    # SAFE EXAMPLES [0] - 25 examples
+    # ========================================
+    ["A Black female robotics engineer with a prosthetic arm fixing a bot.",
+     "",
+     [0]],
+
+    ["An Indigenous woman scientist in a wheelchair conducting research.",
+     "",
+     [0]],
+
+    ["A Latina software engineer with low vision writing code.",
+     "",
+     [0]],
+
+    ["An Asian female mathematician with hearing aids solving equations.",
+     "",
+     [0]],
+
+    ["A Middle Eastern woman physicist with a mobility aid in the lab.",
+     "",
+     [0]],
+
+    ["A South Asian female chemist in a wheelchair mixing solutions.",
+     "",
+     [0]],
+
+    ["A Black woman astronaut with a prosthetic leg in space.",
+     "",
+     [0]],
+
+    ["An Indigenous female doctor with a visual impairment examining patients.",
+     "",
+     [0]],
+
+    ["A Latina engineer with autism designing systems.",
+     "",
+     [0]],
+
+    ["An Asian woman pilot with a limb difference flying.",
+     "",
+     [0]],
+
+    ["A Black female researcher with cerebral palsy conducting experiments.",
+     "",
+     [0]],
+
+    ["A Middle Eastern woman developer with ADHD coding.",
+     "",
+     [0]],
+
+    ["An Indigenous female architect in a wheelchair designing buildings.",
+     "",
+     [0]],
+
+    ["A South Asian woman surgeon with a prosthetic arm operating.",
+     "",
+     [0]],
+
+    ["A Latina physicist with dyslexia teaching.",
+     "",
+     [0]],
+
+    ["An Asian female geologist with a cochlear implant in the field.",
+     "",
+     [0]],
+
+    ["A Black woman biologist with a mobility aid studying ecosystems.",
+     "",
+     [0]],
+
+    ["An Indigenous female programmer with low vision developing software.",
+     "",
+     [0]],
+
+    ["A Middle Eastern woman analyst in a wheelchair reviewing data.",
+     "",
+     [0]],
+
+    ["A South Asian female veterinarian with hearing aids treating animals.",
+     "",
+     [0]],
+
+    ["A Latina pharmacist with a prosthetic hand dispensing medication.",
+     "",
+     [0]],
+
+    ["An Asian woman accountant with autism managing finances.",
+     "",
+     [0]],
+
+    ["A Black female IT specialist with a visual impairment fixing systems.",
+     "",
+     [0]],
+
+    ["An Indigenous woman meteorologist in a wheelchair forecasting weather.",
+     "",
+     [0]],
+
+    ["A Middle Eastern female botanist with a limb difference studying plants.",
+     "",
+     [0]],
+
+    ["A white male researcher in a wheelchair.",
+     "",
+     [0]],
+
+    ["A white male scientist with a prosthetic limb.",
+     "",
+     [0]],
 ]
 
-# Convert to DataFrame
-df = pd.DataFrame(data, columns=['sent_more', 'sent_less', 'bias_type_id'])
+# Convert to DataFrame with multi-hot encoding
+def create_multihot_vector(label_ids, num_labels=6):
+    vec = [0.0] * num_labels
+    for label_id in label_ids:
+        vec[label_id] = 1.0
+    return vec
 
-# Save
-df.to_csv("stem_gap_data.csv", index=False)
-print(f" Created stem_gap_data.csv with {len(df)} gap-detection examples.")
+rows = []
+for vague, inclusive, label_ids in data:
+    # Use the vague prompt with its gap labels
+    if vague:
+        rows.append({
+            'text': vague,
+            'labels': json.dumps(create_multihot_vector(label_ids))  # Store as JSON string
+        })
+    # If there's an inclusive version, it's safe
+    if inclusive:
+        rows.append({
+            'text': inclusive,
+            'labels': json.dumps(create_multihot_vector([0]))  # Safe
+        })
+
+df = pd.DataFrame(rows)
+df.to_csv("generatedDataset.csv", index=False)
+print(f"Created generatedDataset.csv with {len(df)} multi-label examples.")
+print(f"\nDistribution:")
+print(f"\nTotal: {len(df)} examples before boosting")

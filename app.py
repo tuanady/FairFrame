@@ -1,54 +1,14 @@
 from flask import Flask, render_template, request, jsonify
-import modal
-import os
+import requests
 
 app = Flask(__name__)
 
-# Initialize Modal app
-modal_app = modal.App("fairframe-web")
-vol = modal.Volume.from_name("fairframe-vol")
-image = modal.Image.debian_slim().pip_install("transformers", "torch", "sentencepiece", "protobuf")
+# --- CONFIGURATION ---
+# Service A: The Detector (DeBERTa)
+DETECTOR_URL = "https://modal-labs-civicmachines--fairframe-tester-analyze-web.modal.run"
 
-ID2LABEL = {0: "Safe", 1: "Gender", 2: "Race", 3: "Age", 4: "Disability", 5: "Profession"}
-
-
-@modal_app.function(image=image, volumes={"/data": vol}, gpu="L4")
-def detect_gaps_modal(prompt: str):
-    """
-    Modal function to detect bias gaps in a prompt
-    """
-    import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-    print(f"🔍 Analyzing: '{prompt}'")
-
-    # Load model
-    model_path = "/data/multilabel_detector"
-    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-    model = AutoModelForSequenceClassification.from_pretrained(model_path)
-
-    # Get predictions
-    inputs = tokenizer(prompt, return_tensors="pt")
-    with torch.no_grad():
-        logits = model(**inputs).logits
-
-    probs = torch.sigmoid(logits)[0]
-
-    # Detect active gaps
-    active_gaps = []
-    all_scores = {}
-
-    for i in range(1, 6):  # Skip 0 (Safe)
-        score = probs[i].item()
-        all_scores[ID2LABEL[i]] = score
-        if score > 0.50:  # Threshold
-            active_gaps.append(ID2LABEL[i])
-
-    return {
-        "gaps": active_gaps,
-        "scores": all_scores,
-        "safe_score": probs[0].item()
-    }
+# Service B: The Rewriter (Llama-3)
+REWRITER_URL = "https://modal-labs-civicmachines--fairframe-rewriter-rewriter-rewrite.modal.run"
 
 
 @app.route('/')
@@ -59,9 +19,12 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """API endpoint to analyze a prompt"""
-    import requests
-
+    """
+    Main Orchestrator:
+    1. Sends prompt to Detector.
+    2. If gaps found -> Sends to Rewriter.
+    3. Returns combined result to UI.
+    """
     try:
         data = request.get_json()
         prompt = data.get('prompt', '').strip()
@@ -69,24 +32,47 @@ def analyze():
         if not prompt:
             return jsonify({'error': 'Prompt cannot be empty'}), 400
 
-        # ⭐ Call Modal web endpoint
-        modal_url = "https://modal-labs-civicmachines--fairframe-tester-analyze-web.modal.run"
+        # --- STEP 1: CALL DETECTOR (Service A) ---
+        print(f"📡 Calling Detector: {DETECTOR_URL}")
+        det_response = requests.post(DETECTOR_URL, json={"prompt": prompt})
 
-        response = requests.post(modal_url, json={"prompt": prompt})
+        if not det_response.ok:
+            raise Exception(f"Detector API Error: {det_response.status_code}")
 
-        if not response.ok:
-            raise Exception(f"Modal API error: {response.status_code}")
+        det_result = det_response.json()
+        active_gaps = det_result.get("gaps", [])
 
-        result = response.json()
-        return jsonify(result)
+        # --- STEP 2: CALL REWRITER (Service B) ---
+        # Only call Llama-3 if actual gaps were found
+        if active_gaps:
+            print(f"⚡ Gaps found ({active_gaps}). Calling Rewriter: {REWRITER_URL}")
+
+            payload = {
+                "original_prompt": prompt,
+                "gaps": active_gaps
+            }
+
+            rew_response = requests.post(REWRITER_URL, json=payload)
+
+            if rew_response.ok:
+                rew_data = rew_response.json()
+                # Merge the rewritten text into the result
+                det_result["rewritten"] = rew_data.get("rewritten", "Error parsing rewrite.")
+            else:
+                print(f"❌ Rewriter Error: {rew_response.text}")
+                det_result["rewritten"] = "Error: Could not generate rewrite."
+        else:
+            print("✅ Safe prompt. Skipping rewrite.")
+            det_result["rewritten"] = None
+
+        return jsonify(det_result)
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Server Error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
-    # Run Flask app
     print("🚀 Starting FairFrame web server...")
     print("📍 Open http://localhost:5001 in your browser")
     app.run(debug=True, host='0.0.0.0', port=5001)

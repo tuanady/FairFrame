@@ -1,0 +1,17 @@
+{
+  "Race": [
+    "White", "Black", "Asian", "Latino", "Indigenous", "Middle Eastern",
+    "Pacific Islander", "South Asian", "East Asian", "Afro-Latino", "Southeast Asian"
+  ],
+  "Gender": [
+    "female", "woman", "non-binary person", "transgender woman", "gender-fluid person", "queer"
+  ],
+  "Disability": [
+    "person in a wheelchair", "person with a prosthetic arm",
+    "person using a white cane", "deaf person using sign language",
+    "person with vitiligo", "person with a cochlear implant", "neurodivergent person"
+  ],
+  "Age": [
+    "elderly", "senior", "middle-aged", "mature", "young"
+  ]
+}

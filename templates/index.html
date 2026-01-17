@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FairFrame - Bias Detector</title>
+    <title>STEMagine - Bias Gap Detector</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <div class="logo-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -19,7 +18,6 @@
             <p class="subtitle">Detect representation gaps in your image generation prompts</p>
         </div>
 
-        <!-- Input Section -->
         <div class="card input-card">
             <label for="promptInput">Enter your prompt</label>
             <textarea
@@ -35,214 +33,159 @@
 
             <div class="examples">
                 <p class="examples-title">Try these examples:</p>
-                <div class="example-buttons">
-                    <button class="example-btn">Generate a picture of a researcher</button>
-                    <button class="example-btn">A white male engineer</button>
-                    <button class="example-btn">Show me a Black female scientist in a wheelchair</button>
-                    <button class="example-btn">A software developer</button>
+                <div class="chip-container">
+                    <button class="chip">Generate a picture of a researcher</button>
+                    <button class="chip">Portrait of a successful CEO</button>
+                    <button class="chip">A math professor teaching</button>
                 </div>
             </div>
         </div>
 
-        <!-- Loading State -->
-        <div id="loadingState" class="loading-state hidden">
-            <div class="spinner"></div>
-            <p>Analyzing your prompt...</p>
-        </div>
-
-        <!-- Results Section -->
         <div id="resultsSection" class="hidden">
-            <!-- Overall Status -->
-            <div id="statusCard" class="card status-card">
-                <div class="status-content">
-                    <svg id="statusIcon" class="status-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 8v4M12 16h.01"></path>
-                    </svg>
-                    <div>
-                        <h2 id="statusTitle">Analysis Complete</h2>
-                        <p id="statusDescription"></p>
-                        <div id="gapBadges" class="gap-badges"></div>
-                    </div>
+
+            <div id="rewriteCard" class="card hidden" style="border-color: #10b981; background: #ecfdf5;">
+                <h3 style="color: #047857; margin-bottom: 0.5rem;">✨ Suggested Rewrite</h3>
+                <p style="margin-bottom: 1rem; color: #065f46; font-size: 0.9rem;">We optimized your prompt for diversity:</p>
+                <div style="background: white; padding: 1rem; border-radius: 0.5rem; border: 1px solid #d1fae5; font-family: monospace; color: #1f2937;">
+                    <p id="rewriteText"></p>
                 </div>
             </div>
 
-            <!-- Detailed Scores -->
-            <div class="card scores-card">
-                <h3>Detailed Analysis</h3>
-                <div id="scoresList" class="scores-list"></div>
+            <div class="card">
+                <h2>Analysis Results</h2>
+                <div id="scoresList" class="scores-list">
+                    </div>
             </div>
 
-            <!-- Recommendations -->
             <div id="recommendationsCard" class="card recommendations-card hidden">
-                <h3>💡 Recommendations</h3>
-                <ul id="recommendationsList"></ul>
+                <h3>Recommendations</h3>
+                <ul id="recommendationsList">
+                    </ul>
             </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>Powered by FairFrame AI • Promoting inclusive image generation</p>
         </div>
     </div>
 
     <script>
+        // DOM Elements
         const promptInput = document.getElementById('promptInput');
-        const analyzeBtn = document.getElementById('analyzeBtn');
         const charCount = document.getElementById('charCount');
-        const loadingState = document.getElementById('loadingState');
+        const analyzeBtn = document.getElementById('analyzeBtn');
         const resultsSection = document.getElementById('resultsSection');
-        const exampleBtns = document.querySelectorAll('.example-btn');
+        const scoresList = document.getElementById('scoresList');
+        const recommendationsCard = document.getElementById('recommendationsCard');
+        const recommendationsList = document.getElementById('recommendationsList');
 
-        // Character counter
-        promptInput.addEventListener('input', () => {
-            charCount.textContent = `${promptInput.value.length} characters`;
+        // ✨ NEW ELEMENTS
+        const rewriteCard = document.getElementById('rewriteCard');
+        const rewriteText = document.getElementById('rewriteText');
+
+        // Character Count Logic
+        promptInput.addEventListener('input', (e) => {
+            charCount.textContent = `${e.target.value.length} characters`;
         });
 
-        // Example buttons
-        exampleBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                promptInput.value = btn.textContent;
-                charCount.textContent = `${btn.textContent.length} characters`;
+        // Example Chips Logic
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                promptInput.value = chip.textContent;
+                charCount.textContent = `${chip.textContent.length} characters`;
             });
         });
 
-        // Keyboard shortcut (Ctrl+Enter)
-        promptInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                analyzePrompt();
-            }
-        });
-
-        // Analyze button
-        analyzeBtn.addEventListener('click', analyzePrompt);
-
-        async function analyzePrompt() {
+        // Analyze Button Logic
+        analyzeBtn.addEventListener('click', async () => {
             const prompt = promptInput.value.trim();
+            if (!prompt) return;
 
-            if (!prompt) {
-                alert('Please enter a prompt');
-                return;
-            }
-
-            // Show loading
-            analyzeBtn.disabled = true;
+            // 1. Reset UI State
             analyzeBtn.textContent = 'Analyzing...';
-            loadingState.classList.remove('hidden');
+            analyzeBtn.disabled = true;
             resultsSection.classList.add('hidden');
-
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ prompt })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Analysis failed');
-                }
-
-                const result = await response.json();
-                displayResults(result);
-
-            } catch (error) {
-                alert('Error analyzing prompt: ' + error.message);
-                console.error('Error:', error);
-            } finally {
-                analyzeBtn.disabled = false;
-                analyzeBtn.textContent = 'Analyze Bias';
-                loadingState.classList.add('hidden');
-            }
-        }
-
-        function displayResults(result) {
-            const statusCard = document.getElementById('statusCard');
-            const statusIcon = document.getElementById('statusIcon');
-            const statusTitle = document.getElementById('statusTitle');
-            const statusDescription = document.getElementById('statusDescription');
-            const gapBadges = document.getElementById('gapBadges');
-            const scoresList = document.getElementById('scoresList');
-            const recommendationsCard = document.getElementById('recommendationsCard');
-            const recommendationsList = document.getElementById('recommendationsList');
-
-            // Clear previous results
-            gapBadges.innerHTML = '';
             scoresList.innerHTML = '';
             recommendationsList.innerHTML = '';
 
-            // Status card
-            if (result.gaps.length === 0) {
-                statusCard.className = 'card status-card status-safe';
-                statusIcon.innerHTML = '<circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path>';
-                statusTitle.textContent = 'Inclusive Prompt ✓';
-                statusDescription.textContent = 'Your prompt appears to be inclusive across gender, race, and disability representation.';
-            } else {
-                statusCard.className = 'card status-card status-gaps';
-                statusIcon.innerHTML = '<circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path>';
-                statusTitle.textContent = 'Gaps Detected';
-                statusDescription.textContent = `Your prompt may be missing representation in ${result.gaps.length} ${result.gaps.length === 1 ? 'area' : 'areas'}.`;
+            // Hide conditional cards
+            recommendationsCard.classList.add('hidden');
+            rewriteCard.classList.add('hidden'); // Reset rewrite card
 
-                // Gap badges
-                result.gaps.forEach(gap => {
-                    const badge = document.createElement('span');
-                    badge.className = `gap-badge gap-${gap.toLowerCase()}`;
-                    badge.textContent = `${gap} Gap`;
-                    gapBadges.appendChild(badge);
+            try {
+                // 2. Call Backend
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
                 });
-            }
 
-            // Detailed scores
-            const categories = ['Gender', 'Race', 'Disability', 'Age', 'Profession'];
-            categories.forEach(category => {
-                const score = result.scores[category];
-                const isGap = score > 0.5;
-                const percentage = (score * 100).toFixed(1);
+                const result = await response.json();
 
-                const scoreItem = document.createElement('div');
-                scoreItem.className = 'score-item';
-                scoreItem.innerHTML = `
-                    <div class="score-header">
-                        <span class="score-label">${category}</span>
-                        <span class="score-value ${isGap ? 'score-gap' : 'score-safe'}">${percentage}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill ${isGap ? 'progress-gap' : 'progress-safe'}"
-                             style="width: ${percentage}%"></div>
-                    </div>
-                    <p class="score-description">
-                        ${isGap
-                            ? `High likelihood of ${category.toLowerCase()} representation gap`
-                            : `${category} appears to be specified`}
-                    </p>
-                `;
-                scoresList.appendChild(scoreItem);
-            });
+                if (result.error) {
+                    alert(result.error);
+                    return;
+                }
 
-            // Recommendations
-            if (result.gaps.length > 0) {
-                recommendationsCard.classList.remove('hidden');
+                // 3. Display Rewrite (✨ NEW LOGIC)
+                if (result.rewritten) {
+                    rewriteCard.classList.remove('hidden');
+                    rewriteText.textContent = result.rewritten;
+                }
 
-                const recommendations = {
-                    'Gender': 'Consider specifying gender (e.g., "female researcher", "woman scientist")',
-                    'Race': 'Include racial/ethnic diversity (e.g., "Black", "Asian", "Latina", "Indigenous")',
-                    'Disability': 'Add disability representation (e.g., "in a wheelchair", "with a prosthetic limb", "with low vision")',
-                    'Age': 'Consider age diversity (e.g., "young", "senior", "early-career")',
-                    'Profession': 'Specify professional context if needed'
-                };
+                // 4. Display Scores
+                const categories = ['Gender', 'Race', 'Disability', 'Age', 'Profession'];
 
-                result.gaps.forEach(gap => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span class="bullet">•</span><span>${recommendations[gap]}</span>`;
-                    recommendationsList.appendChild(li);
+                categories.forEach(category => {
+                    const score = result.scores[category] || 0;
+                    const percentage = Math.round(score * 100);
+                    const isGap = score > 0.5; // Threshold check
+
+                    const scoreItem = document.createElement('div');
+                    scoreItem.className = 'score-item';
+                    scoreItem.innerHTML = `
+                        <div class="score-header">
+                            <span class="score-label">${category} Gap</span>
+                            <span class="${isGap ? 'score-gap' : 'score-safe'}">${percentage}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${isGap ? 'progress-gap' : 'progress-safe'}"
+                                 style="width: ${percentage}%"></div>
+                        </div>
+                        <p class="score-description">
+                            ${isGap
+                                ? `High likelihood of ${category.toLowerCase()} representation gap`
+                                : `${category} appears to be specified or neutral`}
+                        </p>
+                    `;
+                    scoresList.appendChild(scoreItem);
                 });
-            } else {
-                recommendationsCard.classList.add('hidden');
-            }
 
-            resultsSection.classList.remove('hidden');
-        }
+                // 5. Display Recommendations
+                if (result.gaps.length > 0) {
+                    recommendationsCard.classList.remove('hidden');
+
+                    const recommendations = {
+                        'Gender': 'Consider specifying gender (e.g., "female researcher", "woman scientist")',
+                        'Race': 'Include racial/ethnic diversity (e.g., "Black", "Asian", "Latina", "Indigenous")',
+                        'Disability': 'Add disability representation (e.g., "in a wheelchair", "with a prosthetic limb", "with low vision")',
+                        'Age': 'Consider age diversity (e.g., "young", "senior", "early-career")',
+                        'Profession': 'Specify professional context if needed'
+                    };
+
+                    result.gaps.forEach(gap => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="bullet">•</span><span>${recommendations[gap] || "Improve diversity specificity."}</span>`;
+                        recommendationsList.appendChild(li);
+                    });
+                }
+
+                resultsSection.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred during analysis');
+            } finally {
+                analyzeBtn.textContent = 'Analyze Bias';
+                analyzeBtn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>

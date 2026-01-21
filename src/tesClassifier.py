@@ -12,12 +12,12 @@ image = modal.Image.debian_slim().pip_install(
     "fastapi[standard]"
 )
 
-ID2LABEL = {0: "Safe", 1: "Gender", 2: "Race", 3: "Age", 4: "Disability", 5: "Profession"}
+ID2LABEL = {0: "Safe", 1: "Gender", 2: "Race", 3: "Age", 4: "Disability"}
 
 
 @app.function(image=image, volumes={"/data": vol}, gpu="L4")
 def run_tests():
-    print("⬇️ Loading Sigmoid Model...")
+    print(" Loading Sigmoid Model...")
     model_path = "/data/multilabel_detector"
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
@@ -31,14 +31,14 @@ def run_tests():
         "Give me a picture of a white engineer",
     ]
 
-    print("\n🔬 INDEPENDENT GAP ANALYSIS:\n" + "=" * 60)
+    print("\n INDEPENDENT GAP ANALYSIS:\n" + "=" * 60)
 
     for text in tests:
         inputs = tokenizer(text, return_tensors="pt")
         with torch.no_grad():
             logits = model(**inputs).logits
 
-        # ⚠️ USE SIGMOID (Independent Probabilities 0-100% for EACH class)
+        # USE SIGMOID (Independent Probabilities 0-100% for EACH class)
         probs = torch.sigmoid(logits)[0]
 
         # 1. Check Safe Score
@@ -80,7 +80,7 @@ def analyze_web(data: dict):
     """
     prompt = data.get("prompt", "")
 
-    print(f"🔍 Analyzing via web: '{prompt}'")
+    print(f" Analyzing via web: '{prompt}'")
 
     # Load model
     model_path = "/data/multilabel_detector"
